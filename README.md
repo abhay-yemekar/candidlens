@@ -32,7 +32,7 @@ Rank candidates against a rubric you control, decide with stated reasons, and au
 </div>
 
 > [!NOTE]
-> **HireLens is now CandidLens.** The app and the site use the new name. The GitHub repository, the `hirelens` npm CLI and the `hirelens-*` Docker images keep the old name until the next release.
+> **HireLens is now CandidLens.** Since v1.5.0 everything uses the new name: this repository, the `candidlens` npm CLI and the `candidlens-*` Docker images. The `hirelens` npm package forwards to `candidlens`, and old `HIRELENS_*` settings and `~/.hirelens` sessions still work.
 
 ## Why CandidLens
 
@@ -265,9 +265,9 @@ Self-hosters use [Docker Compose](#self-host-in-one-command) instead: the same a
 
 ## Roadmap
 
-- **Released, v1.4.0 (6 October 2026):** talent-pool rediscovery, the public parser API and the format check. Earlier releases brought blind review, the bias audit, teams and sharing, interview kits, the candidate portal and candidate reports. Full history in the [changelog](CHANGELOG.md).
-- **On `main`, planned for v1.5.0:** the Resume Doctor, multi-provider failover, a full account lifecycle (passwords, reset, email confirmation, change of email, deletion) and the CandidLens rename. See [Unreleased](CHANGELOG.md#unreleased).
-- **Next:** the v1.5.0 release under the new name (npm, Docker images, repository), then internationalization, SSO and finer-grained roles. Details on the [roadmap page](https://candidlens.vercel.app/roadmap).
+- **Released, v1.5.0 (18 November 2026):** the CandidLens rename (repository, `candidlens` on npm, `candidlens-*` images), the Resume Doctor, multi-provider failover and a full account lifecycle (passwords, reset, email confirmation, change of email, deletion).
+- **Earlier:** v1.4.0 (6 October 2026) brought talent-pool rediscovery, the public parser API and the format check. Releases before it brought blind review, the bias audit, teams and sharing, interview kits, the candidate portal and candidate reports. Full history in the [changelog](CHANGELOG.md).
+- **Next:** internationalization, SSO and finer-grained roles. Details on the [roadmap page](https://candidlens.vercel.app/roadmap).
 
 Every feature in this README exists on `main` today and is covered by tests.
 
