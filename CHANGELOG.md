@@ -9,6 +9,13 @@ documented here. Format follows
 
 ### Fixed
 
+- Search by meaning listed every resume, whatever the query: its distance
+  cut-off kept them all. A resume now matches when it stands out from the
+  rest of the job by a set margin, so an unrelated query finds nobody and
+  Ask reads only the resumes that match. On the demo resumes, precision
+  went from 0.17 to 0.94 with the right resume still first. The Index
+  button now shows whenever some resumes are unindexed and the server can
+  embed them, and the results refresh once indexing finishes (#206).
 - Search by meaning never worked: it called Google's `text-embedding-004`,
   which Google shut down on 14 Jan 2026, so no resume was indexed and
   search quietly answered from keywords. It now uses `gemini-embedding-2`
