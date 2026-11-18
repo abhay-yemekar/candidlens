@@ -27,7 +27,7 @@ describe("an error from a command", () => {
     expect(run.status).toBe(1);
     expect(run.stdout).toBe("");
     expect(run.stderr.trimEnd().split(/\r?\n/)).toEqual([
-      "error: not signed in — run `hirelens login <email>` first (or set CANDIDLENS_COOKIE for CI).",
+      "error: not signed in — run `candidlens login <email>` first (or set CANDIDLENS_COOKIE for CI).",
     ]);
   });
 });

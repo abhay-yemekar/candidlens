@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 /**
- * hirelens — the HireLens CLI.
+ * candidlens — the CandidLens CLI.
  *
  * Zero runtime dependencies; published to npm as a bundled build that
  * runs on Node ≥ 20 (from source, Node ≥ 22.6 runs this file via native
- * type stripping). Engineers embed HireLens in any pipeline:
+ * type stripping). Engineers embed CandidLens in any pipeline:
  *
- *   hirelens login you@corp.com            # password via prompt/env
- *   hirelens jobs create "Backend Eng" --jd jd.md
- *   hirelens rubric derive <jobId>         # LLM JD → rubric
- *   hirelens score <jobId> ./resumes/      # upload + score + ranked output
+ *   candidlens login you@corp.com            # password via prompt/env
+ *   candidlens jobs create "Backend Eng" --jd jd.md
+ *   candidlens rubric derive <jobId>         # LLM JD → rubric
+ *   candidlens score <jobId> ./resumes/      # upload + score + ranked output
  *
- * Configuration lives in ~/.hirelens/config.json (override the dir with
+ * Configuration lives in ~/.candidlens/config.json (override the dir with
  * CANDIDLENS_CONFIG_DIR, the URL with CANDIDLENS_API_URL).
  */
 
@@ -57,7 +57,7 @@ function parseArgs(argv: string[]): ParsedArgs {
 async function requireAuth(): Promise<CliConfig> {
   const config = loadConfig();
   if (!config.cookie) {
-    fail("not signed in — run `hirelens login <email>` first (or set CANDIDLENS_COOKIE for CI).");
+    fail("not signed in — run `candidlens login <email>` first (or set CANDIDLENS_COOKIE for CI).");
   }
   return config;
 }
@@ -114,7 +114,7 @@ interface RunCandidate {
 
 async function cmdLogin(args: ParsedArgs): Promise<void> {
   const email = args.positional[0];
-  if (!email) fail("usage: hirelens login <email>");
+  if (!email) fail("usage: candidlens login <email>");
   const password = args.flags.get("password");
   const plain =
     typeof password === "string"
@@ -160,7 +160,7 @@ async function cmdJobs(args: ParsedArgs): Promise<void> {
 
   if (sub === "create") {
     const title = args.positional[1];
-    if (!title) fail("usage: hirelens jobs create <title> --jd <jdfile.md>");
+    if (!title) fail("usage: candidlens jobs create <title> --jd <jdfile.md>");
     const jdPath = args.flags.get("jd");
     let description = "";
     if (typeof jdPath === "string") {
@@ -196,7 +196,7 @@ async function cmdOrg(args: ParsedArgs): Promise<void> {
 
   if (sub === "create") {
     const name = args.positional.slice(1).join(" ");
-    if (!name) fail('usage: hirelens org create "Acme Hiring"');
+    if (!name) fail('usage: candidlens org create "Acme Hiring"');
     const slug = name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
@@ -213,7 +213,7 @@ async function cmdOrg(args: ParsedArgs): Promise<void> {
 
   if (sub === "use") {
     const id = args.positional[1];
-    if (!id) fail("usage: hirelens org use <orgId>");
+    if (!id) fail("usage: candidlens org use <orgId>");
     await post(config, "/api/auth/organization/set-active", { organizationId: id });
     console.log(`Active org: ${id}`);
     return;
@@ -226,7 +226,7 @@ async function cmdRubric(args: ParsedArgs): Promise<void> {
   const config = await requireAuth();
   const sub = args.positional[0] ?? "list";
   const jobId = args.positional[1];
-  if (!jobId) fail("usage: hirelens rubric <list|derive|import> <jobId> [--file rubric.json]");
+  if (!jobId) fail("usage: candidlens rubric <list|derive|import> <jobId> [--file rubric.json]");
 
   if (sub === "list") {
     const body = await get(config, `/api/jobs/${jobId}/rubrics`);
@@ -255,7 +255,8 @@ async function cmdRubric(args: ParsedArgs): Promise<void> {
 
   if (sub === "import") {
     const file = args.flags.get("file");
-    if (typeof file !== "string") fail("usage: hirelens rubric import <jobId> --file rubric.json");
+    if (typeof file !== "string")
+      fail("usage: candidlens rubric import <jobId> --file rubric.json");
     const rubric = JSON.parse(readFileSync(file, "utf8")) as unknown;
     const body = await post(config, `/api/jobs/${jobId}/rubrics`, { rubric });
     const row = body["rubric"] as RubricRow | undefined;
@@ -271,7 +272,7 @@ async function cmdScore(args: ParsedArgs): Promise<void> {
   const jobId = args.positional[0];
   const resumeArgs = args.positional.slice(1);
   if (!jobId || resumeArgs.length === 0) {
-    fail("usage: hirelens score <jobId> <resumes...|directory> [--breakdown] [--json]");
+    fail("usage: candidlens score <jobId> <resumes...|directory> [--breakdown] [--json]");
   }
   const asJson = args.flags.get("json") === true;
   const breakdown = args.flags.get("breakdown") === true;
@@ -349,24 +350,24 @@ async function cmdScore(args: ParsedArgs): Promise<void> {
 
 // ---------- dispatch ----------
 
-const HELP = `hirelens — score resumes against a job rubric from the terminal
+const HELP = `candidlens — score resumes against a job rubric from the terminal
 
 Usage:
-  hirelens login <email> [--password <pw>]   Sign in (session saved locally)
-  hirelens whoami                            Show the signed-in user
-  hirelens logout                            Clear the local session
-  hirelens org list                          List your organizations
-  hirelens org create "Acme Hiring"          Create + activate an organization
-  hirelens org use <orgId>                   Switch the active organization
-  hirelens jobs list                         List jobs in the active org
-  hirelens jobs create <title> --jd <file>   Create a job (or pipe JD on stdin)
-  hirelens rubric list <jobId>               List rubric versions
-  hirelens rubric derive <jobId>             LLM-derive a rubric from the JD
-  hirelens rubric import <jobId> --file f    Import a rubric JSON
-  hirelens score <jobId> <resumes...|dir>    Upload + score + print ranking
-      --breakdown                            Also print per-criterion details
-      --json                                 Machine-readable ranked output
-  hirelens version                           Print the version
+  candidlens login <email> [--password <pw>]   Sign in (session saved locally)
+  candidlens whoami                            Show the signed-in user
+  candidlens logout                            Clear the local session
+  candidlens org list                          List your organizations
+  candidlens org create "Acme Hiring"          Create + activate an organization
+  candidlens org use <orgId>                   Switch the active organization
+  candidlens jobs list                         List jobs in the active org
+  candidlens jobs create <title> --jd <file>   Create a job (or pipe JD on stdin)
+  candidlens rubric list <jobId>               List rubric versions
+  candidlens rubric derive <jobId>             LLM-derive a rubric from the JD
+  candidlens rubric import <jobId> --file f    Import a rubric JSON
+  candidlens score <jobId> <resumes...|dir>    Upload + score + print ranking
+      --breakdown                              Also print per-criterion details
+      --json                                   Machine-readable ranked output
+  candidlens version                           Print the version
 
 Environment: CANDIDLENS_API_URL, CANDIDLENS_COOKIE, CANDIDLENS_PASSWORD,
 CANDIDLENS_CONFIG_DIR.`;
@@ -412,7 +413,7 @@ async function main(): Promise<void> {
         // (never hardcode — it will drift). With the esbuild bundle the JSON
         // is inlined; from source, Node loads it directly.
         const pkg = await import("../package.json", { with: { type: "json" } });
-        console.log(`hirelens ${pkg.default.version}`);
+        console.log(`candidlens ${pkg.default.version}`);
         break;
       }
       case "help":

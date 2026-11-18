@@ -1,12 +1,13 @@
 # Changelog
 
-All notable changes to HireLens are documented here. Format follows
+All notable changes to CandidLens (called HireLens until November 2026) are
+documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is
 [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
-On `main` since v1.4.0; planned for v1.5.0.
+## [1.5.0] — 2026-11-18
 
 ### Added
 
@@ -51,6 +52,14 @@ On `main` since v1.4.0; planned for v1.5.0.
 
 ### Changed
 
+- **The CLI is `candidlens` on npm**, published with provenance. Run
+  `npx candidlens`. The `hirelens` package gets a last 1.5.0 release that
+  forwards to `candidlens`, printing a one-line notice on stderr. The
+  session moves to `~/.candidlens`; one saved in `~/.hirelens` is still
+  read until the next login. When `HOME` is unset, as in a Windows
+  shell, the session now goes in the home folder instead of the current
+  folder. The release images are `candidlens-api` and `candidlens-web`,
+  and 1.5.x also pushes them under the old `hirelens-*` names (#210).
 - The repository moved to `github.com/abhay-yemekar/candidlens` (the old
   address redirects), and a fresh clone lands in `candidlens/`. Docker
   Compose pins its project name to `hirelens`, so a stack keeps its
@@ -132,7 +141,7 @@ On `main` since v1.4.0; planned for v1.5.0.
   pipes or 3+ stacked rows of the same shape. Employment dates no longer
   read a company that starts like a month ("Marriott 2019") as a month,
   and long month-like text no longer slows parsing (#167).
-- `hirelens score <jobId> <directory>` skipped files with uppercase
+- `candidlens score <jobId> <directory>` skipped files with uppercase
   extensions such as `resume.PDF`; a directory now takes them in any
   letter case. CLI errors no longer print a second line reading
   `unreachable`. `apps/api/.env.example` lists all seven model providers,
@@ -331,4 +340,6 @@ First public release. 🎉
   Google Gemini free tier as the default LLM.
 - MIT licensed. Resumes never have to leave the operator's machine.
 
+[Unreleased]: https://github.com/abhay-yemekar/candidlens/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/abhay-yemekar/candidlens/releases/tag/v1.5.0
 [1.0.0]: https://github.com/abhay-yemekar/candidlens/releases/tag/v1.0.0

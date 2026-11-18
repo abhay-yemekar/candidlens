@@ -130,7 +130,7 @@ docker compose up --build -d
 ```bash
 cp apps/api/.env.example apps/api/.env   # then edit if needed
 pnpm --filter @candidlens/api dev
-# → http://localhost:4000/api/health  →  {"ok":true,"service":"hirelens-api","version":"0.1.0"}
+# → http://localhost:4000/api/health  →  {"ok":true,"service":"candidlens-api","version":"0.1.0"}
 ```
 
 The API is the full product surface: Better Auth at `/api/auth/*` (email/password sign-up, sign-in, organizations), then authenticated, org-scoped routes:
@@ -176,24 +176,24 @@ pnpm --filter @candidlens/ui storybook
 
 ### CLI (`apps/cli`)
 
-The CLI scores resumes from the terminal. It is published on npm as [`hirelens`](https://www.npmjs.com/package/hirelens) and runs on **Node ≥ 20**.
+The CLI scores resumes from the terminal. It is published on npm as [`candidlens`](https://www.npmjs.com/package/candidlens) and runs on **Node ≥ 20**. Up to 1.4.x it was `hirelens`, which now forwards to it.
 
 ```bash
 export CANDIDLENS_API_URL=http://localhost:4000          # the API (compose or `pnpm --filter @candidlens/api dev`)
-export CANDIDLENS_CONFIG_DIR=~/.hirelens                  # optional; where the session cookie is stored
+export CANDIDLENS_CONFIG_DIR=~/.candidlens                  # optional; where the session cookie is stored
 
-npx hirelens login you@example.com                 # prompts for password (or set CANDIDLENS_PASSWORD)
-npx hirelens org create "Acme Hiring"
-npx hirelens jobs create "Senior Backend" --jd jd.md
-npx hirelens rubric derive <jobId>                 # LLM-derives the rubric from the JD
-npx hirelens score <jobId> ./resumes               # upload + score + ranked table
+npx candidlens login you@example.com                 # prompts for password (or set CANDIDLENS_PASSWORD)
+npx candidlens org create "Acme Hiring"
+npx candidlens jobs create "Senior Backend" --jd jd.md
+npx candidlens rubric derive <jobId>                 # LLM-derives the rubric from the JD
+npx candidlens score <jobId> ./resumes               # upload + score + ranked table
 #   --breakdown  per-criterion scores + evidence
 #   --json       machine-readable output
 ```
 
-Working on the CLI itself? `pnpm --filter hirelens dev <command>` runs the TypeScript source directly (Node ≥ 22.6, native type stripping). It runs inside `apps/cli`, so relative paths such as `--jd jd.md` resolve from there.
+Working on the CLI itself? `pnpm --filter candidlens dev <command>` runs the TypeScript source directly (Node ≥ 22.6, native type stripping). It runs inside `apps/cli`, so relative paths such as `--jd jd.md` resolve from there.
 
-Accounts are created in the web UI (or via `POST /api/auth/sign-up/email`); `hirelens login` signs an existing account in. All commands require the API to be running and LLM commands (`rubric derive`, `score`) require `CANDIDLENS_LLM_*` configuration on the API side.
+Accounts are created in the web UI (or via `POST /api/auth/sign-up/email`); `candidlens login` signs an existing account in. All commands require the API to be running and LLM commands (`rubric derive`, `score`) require `CANDIDLENS_LLM_*` configuration on the API side.
 
 ## 7. Daily development loop
 
@@ -237,7 +237,7 @@ Git hooks (via husky + lint-staged + commitlint) enforce Biome formatting on sta
 | Tests all report "skipped" (not failed)                                                                               | `DATABASE_URL` not set in the shell that ran them                                                                                                                         | Export `DATABASE_URL=postgres://postgres:postgres@localhost:5433/hirelens` first (see step 3)                                                                             |
 | `error [503 llm_not_configured]` from `rubric derive` / `score` (API in Docker)                                       | The compose file interpolates `CANDIDLENS_LLM_*` from the **root** `.env`; empty-string values count as "set" but the key is empty                                        | Put real `CANDIDLENS_LLM_API_KEY` / `_MODEL` / `_PROVIDER` values in the root `.env`, then `docker compose up -d api`                                                     |
 | `LlmRuntimeError: … Proto field is not repeating, cannot start list` (Google/Gemini)                                  | Gemini rejects JSON schemas with arrays nested inside arrays — rubric and scoring schemas use that shape                                                                  | Fixed in the LLM layer: `generateStructured` automatically falls back to validated JSON-text mode per provider. If you see this on an old build, update to current `main` |
-| `hirelens score` hangs after creating a job                                                                           | `jobs create` without `--jd` reads the job description from **stdin**, which never closes in a scripted shell                                                             | Always pass `--jd <file>` (or pipe: `echo "..."                                                                                                                           | hirelens jobs create …`) |
+| `candidlens score` hangs after creating a job                                                                         | `jobs create` without `--jd` reads the job description from **stdin**, which never closes in a scripted shell                                                             | Always pass `--jd <file>` (or pipe: `echo "..."                                                                                                                           | candidlens jobs create …`) |
 | `error [401 sign_in_failed]` right after a fresh sign-up via API                                                      | better-auth requires an `Origin` header matching a trusted origin (the web app's, e.g. `http://localhost:3000`) — plain curl/CLI calls without it are rejected on sign-up | Sign up once through the web UI or include `-H "Origin: http://localhost:3000"`; then CLI login works normally                                                            |
 
 Still stuck? Open an issue with your OS, Node/pnpm/Docker versions, the exact command, and the full error — see [SUPPORT.md](../SUPPORT.md).

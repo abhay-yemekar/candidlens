@@ -1,5 +1,5 @@
 /**
- * Resume files for `hirelens score`: which types the CLI uploads, and how
+ * Resume files for `candidlens score`: which types the CLI uploads, and how
  * a directory argument is scanned. Extensions match in any letter case
  * (`resume.PDF` is a PDF).
  */
