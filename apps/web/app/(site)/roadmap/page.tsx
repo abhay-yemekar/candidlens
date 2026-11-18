@@ -3,7 +3,7 @@ import { ProsePage } from "@/components/prose-page";
 
 export const metadata: Metadata = {
   title: "Roadmap — CandidLens",
-  description: "What's shipped, what's on main since v1.4.0, and what comes next.",
+  description: "What's shipped, what v1.5.0 brought, and what comes next.",
 };
 
 const NOW = [
@@ -42,7 +42,9 @@ const SHIPPED_V14 = [
   "Application tracker for candidates — role, company, status, notes and self-check score, stored on the device only, exportable as CSV",
 ];
 
-const SINCE_V14 = [
+const SHIPPED_V15 = [
+  "Renamed to CandidLens — candidlens on npm (the hirelens package forwards to it), candidlens-* Docker images and a new repository address; old settings and CLI sessions keep working",
+  "Full account lifecycle — add a password, forgot password, email confirmation, change of email, and account deletion that keeps shared audit logs intact",
   "Resume Doctor — deterministic resume checks with a 0–100 score and every flag pinned to the exact line; paste text or upload a PDF or Word file",
   "Multi-provider AI — failover chain across providers, retry on overload, per-organization provider choice",
   "Talent pool “add to job” and parser hardening for compact resumes",
@@ -51,12 +53,11 @@ const SINCE_V14 = [
 
 const NEXT = [
   {
-    title: "Now — hardening and the rename",
+    title: "Now — after the rename",
     items: [
       "Finishing the fixes from the October 2026 audit (the security fixes are merged)",
-      "Rename to CandidLens, with a new logo and a free candidlens.vercel.app address",
       "Repository guardrails: dependency alerts, private vulnerability reporting, PR title checks",
-      "Launch posts (Product Hunt, Show HN) once the new name is in place",
+      "Launch posts (Product Hunt, Show HN) under the new name",
     ],
   },
   {
@@ -70,10 +71,6 @@ const NEXT = [
 ];
 
 const LATER = [
-  {
-    version: "v1.5.0 — next release",
-    text: "Resume Doctor and everything above that is on main since v1.4.0",
-  },
   { version: "2027", text: "i18n, SSO/SAML, advanced RBAC" },
   {
     version: "v2.0",
@@ -104,9 +101,9 @@ export default function RoadmapPage() {
         ))}
       </ul>
 
-      <h2>On main since v1.4.0</h2>
+      <h2>Shipped in v1.5.0 (18 November 2026)</h2>
       <ul>
-        {SINCE_V14.map((item) => (
+        {SHIPPED_V15.map((item) => (
           <li key={item}>{item}</li>
         ))}
       </ul>

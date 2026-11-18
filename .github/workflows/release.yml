@@ -1,11 +1,14 @@
 name: Release
 
-# Publishes on version tags (v1.0.0 …):
-#  - Docker images → GHCR (hirelens-api, hirelens-web)
-#  - CLI → npm (hirelens), only when NPM_TOKEN is configured
+# Publishes on version tags (v1.5.0 …):
+#  - Docker images → GHCR (candidlens-api, candidlens-web; through 1.5.x
+#    also under the old hirelens-api / hirelens-web names, so existing
+#    pulls keep updating)
+#  - CLI → npm as `candidlens` with provenance, plus the `hirelens`
+#    forwarder once per forwarder version; only when NPM_TOKEN is set
 #  - GitHub Release with auto-generated notes
 #
-# Create a release:  git tag v1.0.0 && git push origin v1.0.0
+# Create a release:  git tag v1.5.0 && git push origin v1.5.0
 
 on:
   push:
@@ -29,9 +32,11 @@ jobs:
     strategy:
       matrix:
         include:
-          - name: hirelens-api
+          - name: candidlens-api
+            legacy: hirelens-api
             dockerfile: apps/api/Dockerfile
-          - name: hirelens-web
+          - name: candidlens-web
+            legacy: hirelens-web
             dockerfile: apps/web/Dockerfile
     steps:
       - uses: actions/checkout@v7
@@ -49,10 +54,12 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          # Owner + matrix name only — `github.repository` would double the
-          # repo name (hirelens-hirelens-api). Matrix names are already
-          # hirelens-api / hirelens-web.
-          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.name }}
+          # Owner + matrix name only: `github.repository` would double the
+          # repo name (candidlens-candidlens-api). The legacy name gets the
+          # same tags so `hirelens-*` pulls keep updating; drop it after 1.5.x.
+          images: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.name }}
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.legacy }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -74,6 +81,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # npm provenance: the registry links each version to this workflow run.
+      id-token: write
     env:
       # Job-level so steps can branch on it; publishes only when the
       # NPM_TOKEN repo secret exists (Settings → Secrets → Actions).
@@ -95,12 +104,32 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build CLI bundle
-        run: pnpm --filter hirelens... build
+        run: pnpm --filter candidlens... build
 
-      - name: Publish to npm
+      # pnpm pack turns the forwarder's `workspace:^` dependency into a real
+      # version range; npm publish would ship it unchanged.
+      - name: Pack candidlens and the hirelens forwarder
+        run: |
+          mkdir -p "$RUNNER_TEMP/npm"
+          pnpm --filter candidlens --filter hirelens pack --pack-destination "$RUNNER_TEMP/npm"
+
+      - name: Publish candidlens
         if: ${{ env.NPM_TOKEN_SET == 'true' }}
-        working-directory: apps/cli
-        run: npm publish
+        run: npm publish "$RUNNER_TEMP"/npm/candidlens-*.tgz --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # The forwarder's version changes rarely; publish it only when that
+      # version isn't on npm yet, after candidlens so its dependency exists.
+      - name: Publish the hirelens forwarder (new versions only)
+        if: ${{ env.NPM_TOKEN_SET == 'true' }}
+        run: |
+          version=$(node -p "require('./apps/cli-hirelens/package.json').version")
+          if npm view "hirelens@$version" version >/dev/null 2>&1; then
+            echo "hirelens@$version is already on npm; skipping."
+          else
+            npm publish "$RUNNER_TEMP"/npm/hirelens-*.tgz --provenance --access public
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -125,11 +154,11 @@ jobs:
         with:
           generate_release_notes: true
           body: |
-            HireLens ${{ github.ref_name }} — see the [changelog](https://github.com/abhay-yemekar/hirelens/blob/main/CHANGELOG.md) and the [README](https://github.com/abhay-yemekar/hirelens#readme) for install instructions.
+            CandidLens ${{ github.ref_name }}: see the [changelog](https://github.com/abhay-yemekar/candidlens/blob/main/CHANGELOG.md) and the [README](https://github.com/abhay-yemekar/candidlens#readme) for install instructions.
 
             **Try it:**
             ```bash
-            npx hirelens --help
+            npx candidlens --help
             ```
             or self-host:
             ```bash

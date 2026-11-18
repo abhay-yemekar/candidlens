@@ -65,7 +65,7 @@ const ROWS: Array<{ symptom: string; cause: string; fix: string }> = [
     fix: "Already fixed: generateStructured auto-falls back to validated JSON-text mode per provider. Update to current main.",
   },
   {
-    symptom: "hirelens score hangs after creating a job",
+    symptom: "candidlens score hangs after creating a job",
     cause: "jobs create without --jd reads the JD from stdin, which never closes in scripts.",
     fix: "Always pass --jd <file> (or pipe input).",
   },
