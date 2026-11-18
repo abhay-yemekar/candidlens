@@ -7,6 +7,8 @@ documented here. Format follows
 
 ## [Unreleased]
 
+## [1.5.1] — 2026-11-18
+
 ### Changed
 
 - The examples and the quickstart name `gemini-3.5-flash-lite` as the
@@ -376,6 +378,7 @@ First public release. 🎉
   Google Gemini free tier as the default LLM.
 - MIT licensed. Resumes never have to leave the operator's machine.
 
-[Unreleased]: https://github.com/abhay-yemekar/candidlens/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/abhay-yemekar/candidlens/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/abhay-yemekar/candidlens/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/abhay-yemekar/candidlens/releases/tag/v1.5.0
 [1.0.0]: https://github.com/abhay-yemekar/candidlens/releases/tag/v1.0.0
