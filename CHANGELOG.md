@@ -1,12 +1,49 @@
 # Changelog
 
-All notable changes to HireLens are documented here. Format follows
+All notable changes to CandidLens (called HireLens until November 2026) are
+documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is
 [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
-On `main` since v1.4.0; planned for v1.5.0.
+### Changed
+
+- The examples and the quickstart name `gemini-3.5-flash-lite` as the
+  Google model. Google retires `gemini-2.5-flash`: from 1 Dec 2026 its
+  requests go to `gemini-3.5-flash-lite`, at the same price. A `.env` that
+  still names 2.5 Flash keeps scoring, but its scores record the old model
+  id; set `CANDIDLENS_LLM_MODEL=gemini-3.5-flash-lite` to record the model
+  that scores (#201).
+
+### Fixed
+
+- Keyword search matched inside words and on words every resume has, so
+  "experience with payments" listed 10 of the 12 demo resumes. Terms now
+  skip stop words and resume headings, match only where a word starts
+  ("postgres" still finds PostgreSQL), and count for more the rarer they
+  are in the job; a resume must score at least a third of the best match.
+  On the demo resumes, search precision went from 0.34 to 0.66 (recall
+  0.90 to 0.88), and from 0.40 to 0.96 on held-out queries (recall 0.94
+  to 1.00). Ask's keyword fallback uses the same matching (#208).
+- Search by meaning listed every resume, whatever the query: its distance
+  cut-off kept them all. A resume now matches when it stands out from the
+  rest of the job by a set margin, so an unrelated query finds nobody and
+  Ask reads only the resumes that match. On the demo resumes, precision
+  went from 0.17 to 0.94 with the right resume still first. The Index
+  button now shows whenever some resumes are unindexed and the server can
+  embed them, and the results refresh once indexing finishes (#206).
+- Search by meaning never worked: it called Google's `text-embedding-004`,
+  which Google shut down on 14 Jan 2026, so no resume was indexed and
+  search quietly answered from keywords. It now uses `gemini-embedding-2`
+  at 768 values, so the database needs no migration. A failed index call
+  is logged with the provider's reason and leaves a resume's stored chunks
+  in place. The "Index resumes for semantic search" button never showed
+  because the API sent the indexed count as text; it is a number now.
+  After upgrading, use that button once in each job to index the resumes
+  uploaded before (#203).
+
+## [1.5.0] — 2026-11-18
 
 ### Added
 
@@ -51,12 +88,14 @@ On `main` since v1.4.0; planned for v1.5.0.
 
 ### Changed
 
-- The examples and the quickstart name `gemini-3.5-flash-lite` as the
-  Google model. Google retires `gemini-2.5-flash`: from 1 Dec 2026 its
-  requests go to `gemini-3.5-flash-lite`, at the same price. A `.env` that
-  still names 2.5 Flash keeps scoring, but its scores record the old model
-  id; set `CANDIDLENS_LLM_MODEL=gemini-3.5-flash-lite` to record the model
-  that scores (#201).
+- **The CLI is `candidlens` on npm**, published with provenance. Run
+  `npx candidlens`. The `hirelens` package gets a last 1.5.0 release that
+  forwards to `candidlens`, printing a one-line notice on stderr. The
+  session moves to `~/.candidlens`; one saved in `~/.hirelens` is still
+  read until the next login. When `HOME` is unset, as in a Windows
+  shell, the session now goes in the home folder instead of the current
+  folder. The release images are `candidlens-api` and `candidlens-web`,
+  and 1.5.x also pushes them under the old `hirelens-*` names (#210).
 - The repository moved to `github.com/abhay-yemekar/candidlens` (the old
   address redirects), and a fresh clone lands in `candidlens/`. Docker
   Compose pins its project name to `hirelens`, so a stack keeps its
@@ -98,11 +137,23 @@ On `main` since v1.4.0; planned for v1.5.0.
 
 ### Fixed
 
+- The candidate portal lost the race/ethnicity answer when a candidate
+  answered both questions: it sent one request per answer, the first used
+  up the link, and the second got a 409 that the page showed as "Thank
+  you". The page now sends every answer in one request
+  (`{ answers: [...] }`), the API stores them and uses up the link in one
+  transaction (two requests at once can't both succeed), and a failed
+  submission shows an error instead of the thank-you screen (#186).
 - The live demo withheld most scores because Gemini quotes several resume
   lines as one ("Led X. Built Y."), which matched no single passage. A
   quote now matches when every sentence in it is verbatim resume text;
   each line is kept and highlighted as its own evidence span. A quote with
   any line that isn't in the resume is still withheld (#175).
+- Shortlisting from the talent pool wrote no audit-log entry, so those
+  decisions were missing from the hash-chained trail and its export. It
+  now records `decision.recorded`, like a decision from the review queue
+  (with `source: "talent_pool"`), in the same transaction as the decision
+  (#187).
 - A Docker Compose stack ignored the model failover chain, the retry
   deadline and the email settings in `.env`, and its web app never showed
   "Forgot password?" or the Google and GitHub buttons. The API container
@@ -110,6 +161,14 @@ On `main` since v1.4.0; planned for v1.5.0.
   `NEXT_PUBLIC_EMAIL_ENABLED` and the sign-in button settings when it is
   built. The `CANDIDLENS_MAIL_FROM` example in `.env.example` is quoted so
   Compose can read the file (#159).
+- The demographics route was served at a doubled path,
+  `/api/jobs/:jobId/demographics/:candidateId/demographics`, while the
+  OpenAPI document listed `/api/jobs/:jobId/candidates/:candidateId/demographics`
+  (a 404). It now answers at the documented path. The document also had the
+  wrong request body for it, and its error schema said `{ error, code }`;
+  it now gives `{ dimension, value }` and the real error body,
+  `{ ok: false, error, message? }`. A test checks that every documented
+  route is served (#188).
 - The Resume Doctor said "No experience section detected" when role lines
   used en or em dashes (`Engineer—Acme  Mar 2021 – Present`); they now
   parse, and a found Experience heading with no readable roles says
@@ -118,11 +177,21 @@ On `main` since v1.4.0; planned for v1.5.0.
   pipes or 3+ stacked rows of the same shape. Employment dates no longer
   read a company that starts like a month ("Marriott 2019") as a month,
   and long month-like text no longer slows parsing (#167).
+- `candidlens score <jobId> <directory>` skipped files with uppercase
+  extensions such as `resume.PDF`; a directory now takes them in any
+  letter case. CLI errors no longer print a second line reading
+  `unreachable`. `apps/api/.env.example` lists all seven model providers,
+  adding Mistral and Cerebras (#190).
 - The public parse API says the roles couldn't be read when the
   Experience heading is there, instead of "No experience section
   detected." Labelled lines under a role (`Stack: Python | Airflow`) are
   no longer read as roles, and education lines separated by en or em
   dashes give the right institution (#170).
+- Settings → Integrations — API tokens showed recruiters, hiring managers
+  and viewers a "forbidden" error and a "Create one" hint, because it
+  called the owner-only token API for everyone. It now checks the
+  member's role first; only owners load and manage tokens, and everyone
+  else sees one "owners only" note (#189).
 - Evidence quotes written with a different hyphen, dash or quote
   character than the resume were not found, so their scores were
   withheld (#143).
@@ -307,4 +376,6 @@ First public release. 🎉
   Google Gemini free tier as the default LLM.
 - MIT licensed. Resumes never have to leave the operator's machine.
 
+[Unreleased]: https://github.com/abhay-yemekar/candidlens/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/abhay-yemekar/candidlens/releases/tag/v1.5.0
 [1.0.0]: https://github.com/abhay-yemekar/candidlens/releases/tag/v1.0.0

@@ -123,12 +123,23 @@ export {
   createEmbeddingModel,
   EMBEDDING_DIMENSIONS,
   EMBEDDING_MODEL_ID,
+  type EmbeddingQueryTask,
   embedChunkTexts,
   embedQuery,
+  MEANING_MATCH_MARGIN,
+  matchesByMeaning,
   type SearchHit,
   synthesizeAnswer,
   type TextChunk,
 } from "./search/index.js";
+export {
+  countKeyword,
+  findKeyword,
+  KEYWORD_MATCH_SHARE,
+  type KeywordMatch,
+  keywordTerms,
+  rankByKeywords,
+} from "./search/keywords.js";
 export { LEGACY_SETTING_PREFIX, readSetting, SETTING_PREFIX } from "./settings.js";
 export {
   candidateFamilies,

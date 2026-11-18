@@ -4,11 +4,12 @@
  * unless DATABASE_URL is set.
  */
 
-import { createMockModel } from "@candidlens/core";
+import { createMockModel, type EmbeddingModel } from "@candidlens/core";
 import { auth, createDb, organization } from "@candidlens/db";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
+import { createIndexer } from "../src/indexing.js";
 import { deleteOrgCompletely } from "./helpers.js";
 
 const DATABASE_URL = process.env["DATABASE_URL"] ?? "";
@@ -17,6 +18,49 @@ const allowSkip = !process.env["CI"];
 
 let app: ReturnType<typeof createApp>;
 let appNoLlm: ReturnType<typeof createApp>;
+let appSemantic: ReturnType<typeof createApp>;
+/** Every prompt the Ask route's mock LLM received. */
+let llmCalls: Array<{ prompt: string }> = [];
+
+/**
+ * A stand-in for gemini-embedding-2: one dimension per topic, so a query
+ * about container orchestration lands on the Kubernetes resume although
+ * it shares no word with it. Every text also shares one "resume" dimension,
+ * so unrelated text sits at cosine distance 0.29, not far apart, as with
+ * the real model. Records every text it was asked to embed.
+ */
+const embeddedTexts: string[] = [];
+const TOPICS = [/kubernetes|orchestration|container/i, /pastry|bakery|dessert/i];
+const topicEmbedder = {
+  specificationVersion: "v4",
+  provider: "test",
+  modelId: "topic-embedder",
+  maxEmbeddingsPerCall: 100,
+  supportsParallelCalls: true,
+  doEmbed: async ({ values }: { values: string[] }) => {
+    embeddedTexts.push(...values);
+    return {
+      embeddings: values.map((text) => {
+        const v = Array.from({ length: 768 }, () => 0);
+        TOPICS.forEach((topic, i) => {
+          if (topic.test(text)) v[i] = 1;
+        });
+        v[767] = 1;
+        return v;
+      }),
+      warnings: [],
+    };
+  },
+} as unknown as EmbeddingModel;
+
+const BAKER_RESUME = [
+  "SAM BAKER",
+  "Pastry Chef - sam.baker@example.com",
+  "",
+  "EXPERIENCE",
+  "Head Pastry Chef - Crumb & Co Bakery - 2019 - Present",
+  "- Designed seasonal dessert menus and trained junior bakers.",
+].join("\n");
 let authHeaders: Record<string, string>;
 let orgId = "";
 
@@ -38,15 +82,17 @@ beforeAll(async () => {
   if (!available) return;
   const db = createDb(DATABASE_URL);
   // The Ask route's LLM returns a canned AskSchema answer.
-  const { model } = createMockModel({
+  const { model, calls } = createMockModel({
     args: {
       answer: "Jordan Avery led the payments platform migration to Kubernetes.",
       usedChunkIds: [],
       confidence: "medium",
     },
   });
+  llmCalls = calls;
   app = createApp({ db, llm: model as never });
   appNoLlm = createApp({ db, llm: null });
+  appSemantic = createApp({ db, llm: model as never, indexer: createIndexer(db, topicEmbedder) });
 
   const signUp = await auth.api.signUpEmail({
     body: {
@@ -107,6 +153,8 @@ describe.skipIf(!available && allowSkip)("search & ask", () => {
     };
     expect(body.ok).toBe(true);
     expect(body.mode).toBe("keyword");
+    // A number: the web app shows its Index button when `indexed === 0`.
+    expect(body.indexed).toBe(0);
     expect(body.total).toBe(1);
     expect(body.hits).toHaveLength(1);
     expect(body.hits[0]?.label).toBe("jordan");
@@ -193,5 +241,175 @@ describe.skipIf(!available && allowSkip)("search & ask", () => {
       headers: authHeaders,
     });
     expect(short.status).toBe(400);
+  });
+
+  it("searches by meaning once resumes are embedded", async () => {
+    const jobRes = await appSemantic.request("/api/jobs", {
+      method: "POST",
+      headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ title: "Semantic Job", description: "Semantic test." }),
+    });
+    const { job } = (await jobRes.json()) as { job: { id: string } };
+    for (const [name, text] of [
+      ["jordan.txt", RESUME],
+      ["baker.txt", BAKER_RESUME],
+    ] as const) {
+      const form = new FormData();
+      form.append("file", new File([text], name, { type: "text/plain" }));
+      const up = await appSemantic.request(`/api/jobs/${job.id}/candidates`, {
+        method: "POST",
+        headers: authHeaders,
+        body: form,
+      });
+      expect(up.status).toBe(201);
+    }
+    // Upload indexed each resume as an untitled document.
+    expect(embeddedTexts.filter((t) => t.startsWith("title: none | text: "))).toHaveLength(2);
+
+    // No word of the query is in either resume: only meaning can find Jordan.
+    const res = await appSemantic.request(
+      `/api/jobs/${job.id}/search?q=${encodeURIComponent("container orchestration")}`,
+      { headers: authHeaders },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      mode: string;
+      embeddingModel: string | null;
+      indexed: number;
+      total: number;
+      hits: Array<{ label: string | null }>;
+    };
+    expect(body.mode).toBe("semantic+keyword");
+    expect(body.embeddingModel).toBe("google/gemini-embedding-2");
+    expect(body.indexed).toBe(2);
+    expect(body.total).toBe(2);
+    expect(body.hits.map((h) => h.label)).toEqual(["jordan"]);
+    expect(embeddedTexts).toContain("task: search result | query: container orchestration");
+
+    // Nothing stands out for an unrelated query, although both resumes are
+    // within the old 0.85 distance cut-off.
+    const unrelated = await appSemantic.request(
+      `/api/jobs/${job.id}/search?q=${encodeURIComponent("piano lessons")}`,
+      { headers: authHeaders },
+    );
+    const unrelatedBody = (await unrelated.json()) as { mode: string; hits: unknown[] };
+    expect(unrelatedBody.hits).toEqual([]);
+    expect(unrelatedBody.mode).toBe("keyword");
+
+    // Ask embeds its question as one, and the model sees only the resume
+    // that matches by meaning.
+    const ask = await appSemantic.request(`/api/jobs/${job.id}/ask`, {
+      method: "POST",
+      headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ question: "Who runs container orchestration?" }),
+    });
+    expect(ask.status).toBe(200);
+    expect(embeddedTexts).toContain(
+      "task: question answering | query: Who runs container orchestration?",
+    );
+    const askPrompt = llmCalls.at(-1)?.prompt ?? "";
+    expect(askPrompt).toContain("Kubernetes");
+    expect(askPrompt).not.toContain("Pastry");
+
+    // The Index button re-embeds every resume in the job.
+    const idx = await appSemantic.request(`/api/jobs/${job.id}/index`, {
+      method: "POST",
+      headers: authHeaders,
+    });
+    expect(idx.status).toBe(200);
+    expect(await idx.json()).toEqual({ ok: true, indexed: 2, total: 2 });
+  });
+
+  it("offers indexing for a partly indexed job only where it can work", async () => {
+    const jobRes = await appSemantic.request("/api/jobs", {
+      method: "POST",
+      headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ title: "Partly indexed job", description: "Backfill test." }),
+    });
+    const { job } = (await jobRes.json()) as { job: { id: string } };
+    // One resume arrives while the server can't embed, one after.
+    for (const [server, name, text] of [
+      [app, "jordan.txt", RESUME],
+      [appSemantic, "baker.txt", BAKER_RESUME],
+    ] as const) {
+      const form = new FormData();
+      form.append("file", new File([text], name, { type: "text/plain" }));
+      const up = await server.request(`/api/jobs/${job.id}/candidates`, {
+        method: "POST",
+        headers: authHeaders,
+        body: form,
+      });
+      expect(up.status).toBe(201);
+    }
+
+    type Status = { indexed: number; total: number; indexingEnabled: boolean };
+    const status = async (server: typeof app): Promise<Status> =>
+      (await (
+        await server.request(`/api/jobs/${job.id}/search?q=${encodeURIComponent("experience")}`, {
+          headers: authHeaders,
+        })
+      ).json()) as Status;
+
+    expect(await status(appSemantic)).toMatchObject({
+      indexed: 1,
+      total: 2,
+      indexingEnabled: true,
+    });
+    // Without an embedding model the button would only fail, so it is off.
+    expect(await status(app)).toMatchObject({ indexed: 1, total: 2, indexingEnabled: false });
+
+    const idx = await appSemantic.request(`/api/jobs/${job.id}/index`, {
+      method: "POST",
+      headers: authHeaders,
+    });
+    expect(await idx.json()).toEqual({ ok: true, indexed: 2, total: 2 });
+    expect(await status(appSemantic)).toMatchObject({ indexed: 2, total: 2 });
+  });
+
+  it("matches keywords as words, not inside other words or on stop words", async () => {
+    const jobRes = await app.request("/api/jobs", {
+      method: "POST",
+      headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ title: "Keyword job", description: "Keyword test." }),
+    });
+    const { job } = (await jobRes.json()) as { job: { id: string } };
+    for (const [name, text] of [
+      ["jordan.txt", RESUME],
+      ["baker.txt", BAKER_RESUME],
+    ] as const) {
+      const form = new FormData();
+      form.append("file", new File([text], name, { type: "text/plain" }));
+      await app.request(`/api/jobs/${job.id}/candidates`, {
+        method: "POST",
+        headers: authHeaders,
+        body: form,
+      });
+    }
+    const labels = async (q: string) => {
+      const res = await app.request(`/api/jobs/${job.id}/search?q=${encodeURIComponent(q)}`, {
+        headers: authHeaders,
+      });
+      const body = (await res.json()) as { hits: Array<{ label: string | null }> };
+      return body.hits.map((h) => h.label).sort();
+    };
+
+    // Both resumes have an EXPERIENCE heading, which used to match: nothing
+    // in this query is a search term now.
+    expect(await labels("experience with")).toEqual([]);
+    // "payment" starts "payments" in Jordan's resume.
+    expect(await labels("payment")).toEqual(["jordan"]);
+    // One rare term each: both match.
+    expect(await labels("pastry kubernetes")).toEqual(["baker", "jordan"]);
+
+    // Ask's keyword fallback sends only the resume that matches.
+    const ask = await app.request(`/api/jobs/${job.id}/ask`, {
+      method: "POST",
+      headers: { ...authHeaders, "content-type": "application/json" },
+      body: JSON.stringify({ question: "Who has experience with Kubernetes?" }),
+    });
+    expect(ask.status).toBe(200);
+    const askPrompt = llmCalls.at(-1)?.prompt ?? "";
+    expect(askPrompt).toContain("Kubernetes");
+    expect(askPrompt).not.toContain("Pastry");
   });
 });

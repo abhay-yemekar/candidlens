@@ -4,17 +4,23 @@
  * asserts every mounted route appears in the document.
  */
 
+/** Every error body: `{ ok: false, error, message? }` (see `app.onError`). */
 const errorResponse = {
   description:
-    "Error envelope. `code` is a stable machine-readable identifier (e.g. `unauthorized`, `forbidden`, `llm_not_configured`, `internal_error`).",
+    "Error envelope. `error` is a stable machine-readable code (e.g. `unauthorized`, `forbidden`, `not_found`, `invalid_body`, `llm_not_configured`, `internal_error`); `message`, when present, explains it for people.",
   content: {
     "application/json": {
       schema: {
         type: "object",
-        required: ["error"],
+        required: ["ok", "error"],
         properties: {
-          error: { type: "string", description: "Human-readable message." },
-          code: { type: "string", description: "Stable machine-readable code." },
+          ok: { type: "boolean", const: false },
+          error: { type: "string", description: "Stable machine-readable code." },
+          message: { type: "string", description: "Human-readable explanation, when given." },
+          errorId: {
+            type: "string",
+            description: "On `internal_error` only: an id to quote when reporting the problem.",
+          },
         },
       },
     },
@@ -888,7 +894,7 @@ export const openApiDocument = {
       put: {
         tags: ["Bias audit"],
         summary:
-          "Opt-in demographic self-report (gender / race / age band / disability). Merged per dimension; used only for aggregate adverse-impact math.",
+          "Record a candidate's self-reported value for one demographic dimension (e.g. `gender`, `race_ethnicity`). Merged per dimension; used only for aggregate adverse-impact math.",
         parameters: [
           { name: "jobId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
           {
@@ -900,14 +906,27 @@ export const openApiDocument = {
         ],
         requestBody: jsonBody({
           type: "object",
+          required: ["dimension", "value"],
           properties: {
-            gender: { type: "string", nullable: true },
-            race: { type: "string", nullable: true },
-            ageBand: { type: "string", nullable: true },
-            disability: { type: "string", nullable: true },
+            dimension: { type: "string", minLength: 1, maxLength: 64, examples: ["gender"] },
+            value: { type: "string", minLength: 1, maxLength: 64 },
           },
         }),
-        responses: { 200: ok({ type: "object" }) },
+        responses: {
+          200: ok({
+            type: "object",
+            properties: {
+              ok: { type: "boolean" },
+              selfReported: {
+                type: "object",
+                additionalProperties: { type: "string" },
+                description: "Every dimension on record for the candidate after the merge.",
+              },
+            },
+          }),
+          400: errorResponse,
+          404: errorResponse,
+        },
       },
     },
     "/api/jobs/{jobId}/score": {
@@ -999,25 +1018,31 @@ export const openApiDocument = {
       get: {
         tags: ["Search"],
         summary:
-          "Semantic search over the job's resumes — pgvector KNN when indexed, keyword matching otherwise.",
+          "Search the job's resumes — those that match by meaning when indexed, merged with keyword matches.",
         parameters: [
           { name: "jobId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
-          { name: "q", in: "query", required: true, schema: { type: "string", minLength: 1 } },
+          { name: "q", in: "query", required: true, schema: { type: "string", minLength: 2 } },
         ],
         responses: {
           200: ok({
             type: "object",
             properties: {
+              mode: { type: "string", enum: ["semantic+keyword", "keyword", "empty"] },
+              embeddingModel: { type: "string", nullable: true },
+              indexed: { type: "integer", description: "Resumes with embedded chunks" },
+              total: { type: "integer" },
+              indexingEnabled: {
+                type: "boolean",
+                description: "The server can embed resumes, so POST /index can succeed",
+              },
               hits: {
                 type: "array",
                 items: {
                   type: "object",
                   properties: {
                     candidateId: { type: "string", format: "uuid" },
-                    label: { type: "string" },
-                    snippet: { type: "string" },
+                    label: { type: "string", nullable: true },
                     score: { type: "number" },
-                    mode: { type: "string", enum: ["semantic", "keyword"] },
                   },
                 },
               },
@@ -1069,7 +1094,7 @@ export const openApiDocument = {
       post: {
         tags: ["Search"],
         summary:
-          "Backfill embeddings for every document in the job (best-effort per document; failures reported, never thrown).",
+          "Embed every resume in the job (best-effort per resume; failures are logged and counted, never thrown).",
         parameters: [
           { name: "jobId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
         ],
@@ -1077,8 +1102,8 @@ export const openApiDocument = {
           200: ok({
             type: "object",
             properties: {
-              indexed: { type: "number" },
-              failed: { type: "number" },
+              indexed: { type: "integer" },
+              total: { type: "integer" },
             },
           }),
           404: errorResponse,
@@ -1245,12 +1270,28 @@ export const openApiDocument = {
       post: {
         tags: ["Portal"],
         summary: "Submit the opt-in demographics self-report. Consumes the link.",
+        description:
+          "Send every answer in one request: the first accepted request uses up the link, and any later one gets 409. Each dimension may appear once. The older one-answer body `{ dimension, value }` is still accepted.",
         parameters: [{ name: "token", in: "path", required: true, schema: { type: "string" } }],
         security: [],
         requestBody: jsonBody({
           type: "object",
-          required: ["dimension", "value"],
-          properties: { dimension: { type: "string" }, value: { type: "string" } },
+          required: ["answers"],
+          properties: {
+            answers: {
+              type: "array",
+              minItems: 1,
+              maxItems: 10,
+              items: {
+                type: "object",
+                required: ["dimension", "value"],
+                properties: {
+                  dimension: { type: "string", maxLength: 64, examples: ["gender"] },
+                  value: { type: "string", maxLength: 64 },
+                },
+              },
+            },
+          },
         }),
         responses: {
           200: ok({ type: "object" }),

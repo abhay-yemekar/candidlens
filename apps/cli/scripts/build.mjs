@@ -1,14 +1,14 @@
 /**
- * Bundle the HireLens CLI into a single dependency-free ESM file for npm.
+ * Bundle the CandidLens CLI into a single dependency-free ESM file for npm.
  *
  * Why a bundle: the sources are TypeScript run via Node's native type
  * stripping (`node src/main.ts`) — great for the repo, but published .js
  * files must be real JavaScript (Node only strips types from .ts files).
- * esbuild strips the types once at pack time, so `npx hirelens` works on
+ * esbuild strips the types once at pack time, so `npx candidlens` works on
  * any Node ≥ 20 with zero install-time compilation and zero runtime
  * dependencies.
  *
- * Run via `pnpm --filter @candidlens/cli build`. Output: dist/main.js
+ * Run via `pnpm --filter candidlens build`. Output: dist/main.js
  * (+ LICENSE copied in for `npm pack`).
  */
 
