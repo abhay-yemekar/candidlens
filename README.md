@@ -32,7 +32,7 @@ Rank candidates against a rubric you control, decide with stated reasons, and au
 </div>
 
 > [!NOTE]
-> **HireLens is now CandidLens.** The app and the site use the new name. The GitHub repository, the `hirelens` npm CLI and the `hirelens-*` Docker images keep the old name until the next release.
+> **HireLens is now CandidLens.** Since v1.5.0 everything uses the new name: this repository, the `candidlens` npm CLI and the `candidlens-*` Docker images. The `hirelens` npm package forwards to `candidlens`, and old `HIRELENS_*` settings and `~/.hirelens` sessions still work.
 
 ## Why CandidLens
 
@@ -60,7 +60,7 @@ cp .env.example .env                # set BETTER_AUTH_SECRET (openssl rand -base
 docker compose up --build -d        # web :3000 · API :4000 · Postgres :5433
 ```
 
-Open [localhost:3000](http://localhost:3000), create an account and an organization, and add a model key to `.env` to score. Migrations run on first boot. Prebuilt images are on GHCR: [`hirelens-web`](https://ghcr.io/abhay-yemekar/candidlens-web) and [`hirelens-api`](https://ghcr.io/abhay-yemekar/candidlens-api).
+Open [localhost:3000](http://localhost:3000), create an account and an organization, and add a model key to `.env` to score. Migrations run on first boot. Prebuilt images are on GHCR from v1.5.0: [`candidlens-web`](https://ghcr.io/abhay-yemekar/candidlens-web) and [`candidlens-api`](https://ghcr.io/abhay-yemekar/candidlens-api). The 1.5.x releases also go out under the old `hirelens-web` and `hirelens-api` names.
 
 ### Develop
 
@@ -105,7 +105,7 @@ Node 20+, pnpm 11 and Docker. The full walkthrough, with expected output and fix
 
 - **Any model:** Google, Anthropic, Groq, OpenRouter, Mistral, Cerebras, or fully local with Ollama, so resumes never have to leave your machine. A failover chain moves to the next provider when one is overloaded.
 - **API:** an org-scoped REST API with a live [OpenAPI 3.1 contract](https://candidlens.vercel.app/api/openapi.json); CI fails if a route ships without a spec entry. A stateless [public parser API](https://candidlens.vercel.app/api-reference) turns a resume into JSON-Resume-compatible data.
-- **CLI:** `hirelens login · jobs · rubric derive · score`, the whole pipeline from a terminal, with no runtime dependencies.
+- **CLI:** `candidlens login · jobs · rubric derive · score`, the whole pipeline from a terminal, with no runtime dependencies.
 - **Observability:** structured logs always; Sentry, Langfuse and PostHog only when you set their keys. Nothing phones home by default.
 
 ## How it works
@@ -133,7 +133,8 @@ flowchart LR
 apps/
   web/            Next.js app: product UI, marketing site, /demo; mounts the API at /api
   api/            Hono API: auth, jobs, rubrics, upload, scoring, audits, accounts
-  cli/            The hirelens CLI (TypeScript, no runtime dependencies)
+  cli/            The candidlens CLI (TypeScript, no runtime dependencies)
+  cli-hirelens/   The CLI's old npm name, hirelens: forwards to candidlens
 packages/
   core/           The engines: extract, parse, rubric, score, evidence, llm, audit, doctor
   db/             Drizzle schema and migrations (Postgres + pgvector), auth and email
@@ -264,9 +265,9 @@ Self-hosters use [Docker Compose](#self-host-in-one-command) instead: the same a
 
 ## Roadmap
 
-- **Released, v1.4.0 (6 October 2026):** talent-pool rediscovery, the public parser API and the format check. Earlier releases brought blind review, the bias audit, teams and sharing, interview kits, the candidate portal and candidate reports. Full history in the [changelog](CHANGELOG.md).
-- **On `main`, planned for v1.5.0:** the Resume Doctor, multi-provider failover, a full account lifecycle (passwords, reset, email confirmation, change of email, deletion) and the CandidLens rename. See [Unreleased](CHANGELOG.md#unreleased).
-- **Next:** the v1.5.0 release under the new name (npm, Docker images, repository), then internationalization, SSO and finer-grained roles. Details on the [roadmap page](https://candidlens.vercel.app/roadmap).
+- **Released, v1.5.0 (18 November 2026):** the CandidLens rename (repository, `candidlens` on npm, `candidlens-*` images), the Resume Doctor, multi-provider failover and a full account lifecycle (passwords, reset, email confirmation, change of email, deletion).
+- **Earlier:** v1.4.0 (6 October 2026) brought talent-pool rediscovery, the public parser API and the format check. Releases before it brought blind review, the bias audit, teams and sharing, interview kits, the candidate portal and candidate reports. Full history in the [changelog](CHANGELOG.md).
+- **Next:** internationalization, SSO and finer-grained roles. Details on the [roadmap page](https://candidlens.vercel.app/roadmap).
 
 Every feature in this README exists on `main` today and is covered by tests.
 

@@ -1,0 +1,33 @@
+{
+  "name": "hirelens",
+  "version": "1.5.0",
+  "private": false,
+  "description": "Renamed to candidlens. This package forwards the hirelens command to the candidlens CLI.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "hirelens": "./bin.js"
+  },
+  "files": [
+    "bin.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/abhay-yemekar/candidlens.git",
+    "directory": "apps/cli-hirelens"
+  },
+  "homepage": "https://candidlens.vercel.app/docs/cli",
+  "bugs": "https://github.com/abhay-yemekar/candidlens/issues",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "dependencies": {
+    "candidlens": "workspace:^"
+  }
+}

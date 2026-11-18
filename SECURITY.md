@@ -5,8 +5,8 @@
 | Version                                  | Supported                  |
 | ---------------------------------------- | -------------------------- |
 | `main` branch (what the hosted app runs) | ✅                         |
-| Latest release (currently 1.4.x)         | ✅                         |
-| Older releases (1.0.x, 1.2.x)            | ❌ — upgrade to the latest |
+| Latest release (currently 1.5.x)         | ✅                         |
+| Older releases (1.0.x to 1.4.x)          | ❌ — upgrade to the latest |
 
 Security fixes land on `main` first, then ship in the next release: the npm CLI package (`hirelens` up to 1.4.x, `candidlens` from 1.5.0) and the GHCR images. Fixes are not backported to older releases.
 
