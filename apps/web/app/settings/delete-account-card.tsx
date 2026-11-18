@@ -50,7 +50,8 @@ export function DeleteAccountCard() {
     } catch (err) {
       setBusy(false);
       const code = err instanceof ApiRequestError ? err.code : undefined;
-      if (code === "hand_over_ownership") void start();
+      // The plan on screen is out of date: show the new one.
+      if (code === "hand_over_ownership" || code === "organizations_changed") void start();
       setError(err instanceof Error ? err.message : "Couldn't delete the account. Try again.");
     }
   }

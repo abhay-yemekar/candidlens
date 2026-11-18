@@ -331,14 +331,10 @@ export function talentPoolRoutes(): Hono<AppEnv> {
 
     // The decision and its audit entry commit together. The entry has the
     // same action and fields as a decision recorded from the review queue,
-    // plus where it came from.
+    // plus where it came from. It goes first, so the audit locks come
+    // before the decision's foreign keys lock the candidate and your
+    // account: account deletion takes them in that order too (#200).
     await db.transaction(async (tx) => {
-      await tx.insert(decisions).values({
-        candidateId,
-        stage: "shortlisted",
-        reason,
-        decidedBy: auth.userId,
-      });
       await appendAuditIn(tx, {
         orgId: auth.orgId,
         actorId: auth.userId,
@@ -350,6 +346,12 @@ export function talentPoolRoutes(): Hono<AppEnv> {
           reason,
           source: "talent_pool",
         },
+      });
+      await tx.insert(decisions).values({
+        candidateId,
+        stage: "shortlisted",
+        reason,
+        decidedBy: auth.userId,
       });
     });
 

@@ -9,6 +9,14 @@ documented here. Format follows
 
 ### Fixed
 
+- Deleting an account could fail with a deadlock when an audit entry for
+  one of its organizations was being written at the same moment, say by
+  the scheduled bias-audit sweep or a scoring run still going. The
+  deletion locked the organizations before the audit log, the opposite of
+  an audit write; it now takes the audit locks first. Shortlisting from
+  the talent pool writes its audit entry first for the same reason. If you
+  join an organization in the moment you confirm, the deletion now stops
+  and asks you to check the list and confirm again (#200).
 - Keyword search matched inside words and on words every resume has, so
   "experience with payments" listed 10 of the 12 demo resumes. Terms now
   skip stop words and resume headings, match only where a word starts
