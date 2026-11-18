@@ -7,6 +7,15 @@ documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The examples and the quickstart name `gemini-3.5-flash-lite` as the
+  Google model. Google retires `gemini-2.5-flash`: from 1 Dec 2026 its
+  requests go to `gemini-3.5-flash-lite`, at the same price. A `.env` that
+  still names 2.5 Flash keeps scoring, but its scores record the old model
+  id; set `CANDIDLENS_LLM_MODEL=gemini-3.5-flash-lite` to record the model
+  that scores (#201).
+
 ### Fixed
 
 - Keyword search matched inside words and on words every resume has, so
