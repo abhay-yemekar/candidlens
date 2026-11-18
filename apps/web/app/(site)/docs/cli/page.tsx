@@ -4,7 +4,7 @@ import { ProsePage } from "@/components/prose-page";
 export const metadata: Metadata = {
   title: "CLI reference — CandidLens Docs",
   description:
-    "The hirelens CLI: login, organizations, jobs, rubric derivation, and the score pipeline from your terminal. Zero runtime dependencies.",
+    "The candidlens CLI: login, organizations, jobs, rubric derivation, and the score pipeline from your terminal. Zero runtime dependencies.",
 };
 
 export default function CliPage() {
@@ -12,19 +12,20 @@ export default function CliPage() {
     <ProsePage
       eyebrow="Docs · Get started"
       title="CLI reference"
-      lede="hirelens is a zero-runtime-dependency CLI published on npm — run it with npx on Node ≥ 20. The full pipeline, from a terminal."
+      lede="candidlens is a zero-runtime-dependency CLI published on npm — run it with npx on Node ≥ 20. The full pipeline, from a terminal. Up to 1.4.x it was published as hirelens, which now forwards to it."
     >
       <h2>Setup</h2>
       <pre>
         <code>{`export CANDIDLENS_API_URL=http://localhost:4000     # the API
-export CANDIDLENS_CONFIG_DIR=~/.hirelens            # optional; cookie storage
+export CANDIDLENS_CONFIG_DIR=~/.candidlens            # optional; cookie storage
 
-npx hirelens login you@example.com`}</code>
+npx candidlens login you@example.com`}</code>
       </pre>
       <p>
         <code>login</code> prompts for your password (or set <code>CANDIDLENS_PASSWORD</code> for
         scripts). Accounts are created in the web UI or via the sign-up API; the CLI signs existing
-        accounts in. Sessions persist to <code>~/.hirelens/</code>.
+        accounts in. Sessions persist to <code>~/.candidlens/</code>; a session saved in{" "}
+        <code>~/.hirelens/</code> by the CLI&apos;s old name, <code>hirelens</code>, is still read.
       </p>
       <p>
         In CI, skip <code>login</code> and set <code>CANDIDLENS_COOKIE</code> to a session cookie as
@@ -44,79 +45,79 @@ npx hirelens login you@example.com`}</code>
         <tbody>
           <tr>
             <td>
-              <code>hirelens login &lt;email&gt;</code>
+              <code>candidlens login &lt;email&gt;</code>
             </td>
             <td>Authenticate; stores the session cookie</td>
           </tr>
           <tr>
             <td>
-              <code>hirelens whoami</code>
+              <code>candidlens whoami</code>
             </td>
             <td>Print the signed-in email</td>
           </tr>
           <tr>
             <td>
-              <code>hirelens logout</code>
+              <code>candidlens logout</code>
             </td>
             <td>Clear the session saved on this machine</td>
           </tr>
           <tr>
             <td>
-              <code>hirelens org list</code>
+              <code>candidlens org list</code>
             </td>
             <td>List your organizations</td>
           </tr>
           <tr>
             <td>
-              <code>hirelens org create &quot;Acme Hiring&quot;</code>
+              <code>candidlens org create &quot;Acme Hiring&quot;</code>
             </td>
             <td>Create an organization (becomes the active tenant)</td>
           </tr>
           <tr>
             <td>
-              <code>hirelens org use &lt;orgId&gt;</code>
+              <code>candidlens org use &lt;orgId&gt;</code>
             </td>
             <td>Switch the active organization</td>
           </tr>
           <tr>
             <td>
-              <code>hirelens jobs list</code>
+              <code>candidlens jobs list</code>
             </td>
             <td>List jobs in the active organization</td>
           </tr>
           <tr>
             <td>
-              <code>hirelens jobs create &quot;Senior Backend&quot; --jd jd.md</code>
+              <code>candidlens jobs create &quot;Senior Backend&quot; --jd jd.md</code>
             </td>
             <td>Create a job from a JD file (or stdin if omitted)</td>
           </tr>
           <tr>
             <td>
-              <code>hirelens rubric list &lt;jobId&gt;</code>
+              <code>candidlens rubric list &lt;jobId&gt;</code>
             </td>
             <td>List rubric versions</td>
           </tr>
           <tr>
             <td>
-              <code>hirelens rubric derive &lt;jobId&gt;</code>
+              <code>candidlens rubric derive &lt;jobId&gt;</code>
             </td>
             <td>LLM-derives the rubric from the JD</td>
           </tr>
           <tr>
             <td>
-              <code>hirelens rubric import &lt;jobId&gt; --file r.json</code>
+              <code>candidlens rubric import &lt;jobId&gt; --file r.json</code>
             </td>
             <td>Import a rubric JSON as a new version</td>
           </tr>
           <tr>
             <td>
-              <code>hirelens score &lt;jobId&gt; ./resumes</code>
+              <code>candidlens score &lt;jobId&gt; ./resumes</code>
             </td>
             <td>Upload + score + ranked table</td>
           </tr>
           <tr>
             <td>
-              <code>hirelens version</code>
+              <code>candidlens version</code>
             </td>
             <td>Print the version</td>
           </tr>
@@ -125,8 +126,8 @@ npx hirelens login you@example.com`}</code>
 
       <h2>score flags</h2>
       <pre>
-        <code>{`hirelens score <jobId> ./resumes --breakdown   # per-criterion scores + evidence
-hirelens score <jobId> ./resumes --json        # machine-readable output`}</code>
+        <code>{`candidlens score <jobId> ./resumes --breakdown   # per-criterion scores + evidence
+candidlens score <jobId> ./resumes --json        # machine-readable output`}</code>
       </pre>
       <p>
         <code>score</code> takes a folder or a list of files. From a folder it uploads the files
@@ -141,7 +142,7 @@ hirelens score <jobId> ./resumes --json        # machine-readable output`}</code
         a rubric first; without one the API answers <code>409 no_rubric</code>.
       </p>
       <pre>
-        <code>{`$ npx hirelens score <jobId> ./resumes
+        <code>{`$ npx candidlens score <jobId> ./resumes
 ↑ alex-kim.md → created
 ↑ jane-doe.pdf → created
 ↑ sam-lee.docx → created
@@ -167,10 +168,10 @@ RANK  CANDIDATE     OVERALL
 
       <h2>Example end-to-end</h2>
       <pre>
-        <code>{`npx hirelens org create "Acme Hiring"
-npx hirelens jobs create "Senior Backend Engineer" --jd jd.md
-npx hirelens rubric derive <jobId>
-npx hirelens score <jobId> ./resumes --breakdown`}</code>
+        <code>{`npx candidlens org create "Acme Hiring"
+npx candidlens jobs create "Senior Backend Engineer" --jd jd.md
+npx candidlens rubric derive <jobId>
+npx candidlens score <jobId> ./resumes --breakdown`}</code>
       </pre>
       <p>
         LLM commands (<code>rubric derive</code>, <code>score</code>) require{" "}
@@ -180,8 +181,8 @@ npx hirelens score <jobId> ./resumes --breakdown`}</code>
 
       <h2>Running from source</h2>
       <pre>
-        <code>{`pnpm --filter hirelens dev <command>
-pnpm --filter hirelens dev whoami`}</code>
+        <code>{`pnpm --filter candidlens dev <command>
+pnpm --filter candidlens dev whoami`}</code>
       </pre>
       <p>
         The <code>dev</code> script runs <code>node src/main.ts</code>, so Node runs the TypeScript

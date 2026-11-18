@@ -60,7 +60,7 @@ cp .env.example .env                # set BETTER_AUTH_SECRET (openssl rand -base
 docker compose up --build -d        # web :3000 · API :4000 · Postgres :5433
 ```
 
-Open [localhost:3000](http://localhost:3000), create an account and an organization, and add a model key to `.env` to score. Migrations run on first boot. Prebuilt images are on GHCR: [`hirelens-web`](https://ghcr.io/abhay-yemekar/candidlens-web) and [`hirelens-api`](https://ghcr.io/abhay-yemekar/candidlens-api).
+Open [localhost:3000](http://localhost:3000), create an account and an organization, and add a model key to `.env` to score. Migrations run on first boot. Prebuilt images are on GHCR from v1.5.0: [`candidlens-web`](https://ghcr.io/abhay-yemekar/candidlens-web) and [`candidlens-api`](https://ghcr.io/abhay-yemekar/candidlens-api). The 1.5.x releases also go out under the old `hirelens-web` and `hirelens-api` names.
 
 ### Develop
 
@@ -105,7 +105,7 @@ Node 20+, pnpm 11 and Docker. The full walkthrough, with expected output and fix
 
 - **Any model:** Google, Anthropic, Groq, OpenRouter, Mistral, Cerebras, or fully local with Ollama, so resumes never have to leave your machine. A failover chain moves to the next provider when one is overloaded.
 - **API:** an org-scoped REST API with a live [OpenAPI 3.1 contract](https://candidlens.vercel.app/api/openapi.json); CI fails if a route ships without a spec entry. A stateless [public parser API](https://candidlens.vercel.app/api-reference) turns a resume into JSON-Resume-compatible data.
-- **CLI:** `hirelens login · jobs · rubric derive · score`, the whole pipeline from a terminal, with no runtime dependencies.
+- **CLI:** `candidlens login · jobs · rubric derive · score`, the whole pipeline from a terminal, with no runtime dependencies.
 - **Observability:** structured logs always; Sentry, Langfuse and PostHog only when you set their keys. Nothing phones home by default.
 
 ## How it works
@@ -133,7 +133,8 @@ flowchart LR
 apps/
   web/            Next.js app: product UI, marketing site, /demo; mounts the API at /api
   api/            Hono API: auth, jobs, rubrics, upload, scoring, audits, accounts
-  cli/            The hirelens CLI (TypeScript, no runtime dependencies)
+  cli/            The candidlens CLI (TypeScript, no runtime dependencies)
+  cli-hirelens/   The CLI's old npm name, hirelens: forwards to candidlens
 packages/
   core/           The engines: extract, parse, rubric, score, evidence, llm, audit, doctor
   db/             Drizzle schema and migrations (Postgres + pgvector), auth and email

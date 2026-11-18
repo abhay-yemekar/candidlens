@@ -116,16 +116,16 @@ Content-Type: application/json
         <Link href="/api-reference">OpenAPI 3.1 reference</Link>:
       </p>
       <pre>
-        <code>{`# 1. create the job from its description (or find one: hirelens jobs list)
-hirelens jobs create "Senior Data Engineer" --jd jd.md
+        <code>{`# 1. create the job from its description (or find one: candidlens jobs list)
+candidlens jobs create "Senior Data Engineer" --jd jd.md
 
 # 2. draft the rubric from the job description with the model
-#    (or bring your own: hirelens rubric import <jobId> --file rubric.json)
-hirelens rubric derive <jobId>
+#    (or bring your own: candidlens rubric import <jobId> --file rubric.json)
+candidlens rubric derive <jobId>
 
 # 3. upload the resumes the ATS exported, score every candidate on the job,
 #    and save the ranking to read back into your ATS
-hirelens score <jobId> ./export --json > ranking.json`}</code>
+candidlens score <jobId> ./export --json > ranking.json`}</code>
       </pre>
       <p>
         <code>jobs create</code> prints the new job&apos;s id. <code>score</code> takes a folder or
