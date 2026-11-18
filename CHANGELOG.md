@@ -9,6 +9,14 @@ documented here. Format follows
 
 ### Fixed
 
+- Keyword search matched inside words and on words every resume has, so
+  "experience with payments" listed 10 of the 12 demo resumes. Terms now
+  skip stop words and resume headings, match only where a word starts
+  ("postgres" still finds PostgreSQL), and count for more the rarer they
+  are in the job; a resume must score at least a third of the best match.
+  On the demo resumes, search precision went from 0.34 to 0.66 (recall
+  0.90 to 0.88), and from 0.40 to 0.96 on held-out queries (recall 0.94
+  to 1.00). Ask's keyword fallback uses the same matching (#208).
 - Search by meaning listed every resume, whatever the query: its distance
   cut-off kept them all. A resume now matches when it stands out from the
   rest of the job by a set margin, so an unrelated query finds nobody and
