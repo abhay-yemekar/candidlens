@@ -583,8 +583,8 @@ export default function LandingPage() {
             Try the live demo
           </Link>
           <p id="roadmap" className="mt-10 text-xs" style={{ color: "var(--hl-muted)" }}>
-            v1.4.0 is live — talent-pool rediscovery, a public parser API, and the ATS format check.
-            See the roadmap.
+            v1.5.0 is live — the Resume Doctor, multi-provider failover, and a full account
+            lifecycle. See the roadmap.
           </p>
         </div>
       </section>
