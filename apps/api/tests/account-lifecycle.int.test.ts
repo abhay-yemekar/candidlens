@@ -8,7 +8,7 @@
 
 import { hashLink } from "@candidlens/core";
 import { auth, createDb, type Database, loggedMail } from "@candidlens/db";
-import { appendAudit } from "@candidlens/orchestrator";
+import { appendAudit, appendAuditIn, type DbTransaction } from "@candidlens/orchestrator";
 import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
@@ -47,6 +47,13 @@ function post(path: string, cookie: string, body: unknown, origin: string | null
     },
     body: JSON.stringify(body),
   });
+}
+
+/** Starts deleting the account without waiting for the answer. */
+function startDeletion(account: { cookie: string; email: string }): Promise<Response> {
+  return Promise.resolve(
+    post("/api/account/delete", account.cookie, { confirmEmail: account.email }),
+  );
 }
 
 async function errorOf(res: Response): Promise<string> {
@@ -122,6 +129,41 @@ async function chainIntact(orgId: string): Promise<boolean> {
     previous = row.hash;
   }
   return true;
+}
+
+async function backendPid(tx: DbTransaction): Promise<number> {
+  const result = await tx.execute<{ pid: number }>(sql`select pg_backend_pid() as "pid"`);
+  return result.rows[0]?.pid ?? 0;
+}
+
+/** The backends waiting on a lock that `pid` holds. */
+async function waitingOn(pid: number): Promise<number[]> {
+  const result = await db.execute<{ pid: number }>(
+    sql`select "pid" from pg_stat_activity where ${pid} = any(pg_blocking_pids("pid"))`,
+  );
+  return result.rows.map((r) => r.pid);
+}
+
+/** Polls until `check` returns a value: a lock wait seen in pg_stat_activity. */
+async function waitFor<T>(check: () => Promise<T | undefined>): Promise<T> {
+  const deadline = Date.now() + 5_000;
+  for (;;) {
+    const value = await check();
+    if (value !== undefined) return value;
+    if (Date.now() > deadline) throw new Error("timed out waiting for a lock wait");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+}
+
+/** The Postgres error code anywhere in an error's cause chain. */
+function pgCode(err: unknown): string | undefined {
+  let cur: unknown = err;
+  while (cur && typeof cur === "object") {
+    const code = (cur as { code?: unknown }).code;
+    if (typeof code === "string") return code;
+    cur = (cur as { cause?: unknown }).cause;
+  }
+  return undefined;
 }
 
 function setSignInAge(userId: string, age: string) {
@@ -439,6 +481,145 @@ describe.skipIf(!available && allowSkip)("delete account", () => {
     expect(
       await count(
         sql`select count(*) as n from "member" where "organization_id" = ${orgId} and "role" = 'owner'`,
+      ),
+    ).toBe(1);
+  });
+
+  // #200: an audit write for the same organization, like the cron sweep's,
+  // arrives while the deletion holds its locks. Hold the deletion on the
+  // organization's memberships, the last thing it locks, start the write
+  // and wait until it waits on the deletion, then let go.
+  it.each([
+    { kind: "erases", shared: false },
+    { kind: "leaves", shared: true },
+  ])(
+    "isn't deadlocked by an audit write for an organization it $kind",
+    { timeout: 15_000 },
+    async ({ kind, shared }) => {
+      const user = await signUp(`audit-${kind}`);
+      const orgId = await createOrg(user, `audit-${kind}`);
+      if (shared) await addMember(orgId, (await signUp(`audit-${kind}-mate`)).id, "owner");
+      const setting = await db.execute<{ ms: string }>(
+        sql`select "setting" as "ms" from pg_settings where "name" = 'deadlock_timeout'`,
+      );
+      const deadlockTimeout = Number(setting.rows[0]?.ms ?? 1000);
+
+      let deletion: Promise<number> | undefined;
+      let write: Promise<string> | undefined;
+      await db.transaction(async (hold) => {
+        await hold.execute(
+          sql`select 1 from "member" where "organization_id" = ${orgId} for update`,
+        );
+        const holder = await backendPid(hold);
+        deletion = startDeletion(user).then((r) => r.status);
+        const deleter = await waitFor(async () => (await waitingOn(holder))[0]);
+
+        let writer = 0;
+        write = db
+          .transaction(async (tx) => {
+            writer = await backendPid(tx);
+            await appendAuditIn(tx, {
+              orgId,
+              action: "bias_audit.scheduled",
+              payload: { trigger: "scheduled" },
+            });
+          })
+          .then(
+            () => "written",
+            (err: unknown) => pgCode(err) ?? String(err),
+          );
+        await waitFor(async () =>
+          writer !== 0 && (await waitingOn(deleter)).includes(writer) ? true : undefined,
+        );
+        // Past the writer's own deadlock check, so a deadlock would now fail
+        // the deletion, as #200 describes.
+        await new Promise((resolve) => setTimeout(resolve, deadlockTimeout + 250));
+      });
+
+      expect(await deletion).toBe(200);
+      // The write goes in after the deletion: into the shared organization,
+      // or not at all once the organization is gone (the cron sweep skips
+      // that foreign-key error). Never a deadlock (40P01).
+      expect(await write).toBe(shared ? "written" : "23503");
+      expect(await count(sql`select count(*) as n from "organization" where "id" = ${orgId}`)).toBe(
+        shared ? 1 : 0,
+      );
+      if (shared) expect(await chainIntact(orgId)).toBe(true);
+    },
+  );
+
+  // Your own write, say from a scoring run you started, already holds its
+  // organization's audit lock when the deletion starts. It must be able to
+  // finish, foreign key on your account included, before the deletion
+  // locks the account.
+  it.each([
+    { kind: "erases", shared: false },
+    { kind: "leaves", shared: true },
+  ])(
+    "isn't deadlocked by your own audit write already under way in an organization it $kind",
+    { timeout: 15_000 },
+    async ({ kind, shared }) => {
+      const user = await signUp(`own-${kind}`);
+      const orgId = await createOrg(user, `own-${kind}`);
+      if (shared) await addMember(orgId, (await signUp(`own-${kind}-mate`)).id, "owner");
+
+      let deletion: Promise<number> | undefined;
+      const write = await db
+        .transaction(async (tx) => {
+          await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${orgId}))`);
+          const writer = await backendPid(tx);
+          deletion = startDeletion(user).then((r) => r.status);
+          await waitFor(async () => ((await waitingOn(writer)).length > 0 ? true : undefined));
+          await appendAuditIn(tx, {
+            orgId,
+            actorId: user.id,
+            action: "scoring.candidate.completed",
+            payload: {},
+          });
+        })
+        .then(
+          () => "written",
+          (err: unknown) => pgCode(err) ?? String(err),
+        );
+
+      expect(write).toBe("written");
+      expect(await deletion).toBe(200);
+      expect(await count(sql`select count(*) as n from "organization" where "id" = ${orgId}`)).toBe(
+        shared ? 1 : 0,
+      );
+      if (shared) expect(await chainIntact(orgId)).toBe(true);
+    },
+  );
+
+  it("starts over if you join an organization just as the deletion starts", async () => {
+    const user = await signUp("joiner");
+    const host = await signUp("host");
+    const orgId = await createOrg(host, "joined");
+
+    // The membership's foreign key holds the account until it commits, so
+    // the deletion has read its (empty) list of organizations and then
+    // waits for the account.
+    let deletion: Promise<Response> | undefined;
+    await db.transaction(async (hold) => {
+      await hold.execute(
+        sql`insert into "member" ("id", "organization_id", "user_id", "role", "created_at")
+            values (${`m-${orgId}-${user.id}`}, ${orgId}, ${user.id}, 'recruiter', now())`,
+      );
+      const holder = await backendPid(hold);
+      deletion = startDeletion(user);
+      await waitFor(async () => (await waitingOn(holder))[0]);
+    });
+
+    const res = await deletion;
+    expect(res?.status).toBe(409);
+    if (res) expect(await errorOf(res)).toBe("organizations_changed");
+    expect((await userRow(user.id))?.email).toBe(user.email);
+
+    const again = await post("/api/account/delete", user.cookie, { confirmEmail: user.email });
+    expect(again.status).toBe(200);
+    expect(
+      await count(
+        sql`select count(*) as n from "audit_log" where "org_id" = ${orgId} and "action" = 'member.account_deleted'`,
       ),
     ).toBe(1);
   });
