@@ -18,6 +18,14 @@ documented here. Format follows
   join an organization in the moment you confirm, the deletion now stops
   and asks you to check the list and confirm again (#200).
 
+### Security
+
+- PDF resumes are read with unpdf 1.9.1, which bundles PDF.js 6.4.299.
+  unpdf 1.8.1 bundled PDF.js 6.1.200, inside the range of
+  GHSA-hq66-cqwq-w95j (CVE-2026-16633), where a malicious PDF can run
+  JavaScript in a viewer that runs document scripts. Text extraction
+  runs none, so the exposure was low (#223).
+
 ## [1.5.1] — 2026-11-20
 
 ### Changed
