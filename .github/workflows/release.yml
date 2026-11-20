@@ -5,7 +5,8 @@ name: Release
 #    also under the old hirelens-api / hirelens-web names, so existing
 #    pulls keep updating)
 #  - CLI → npm as `candidlens` with provenance, plus the `hirelens`
-#    forwarder once per forwarder version; only when NPM_TOKEN is set
+#    forwarder once per forwarder version, through npm trusted publishing
+#    (OIDC); the NPM_TOKEN secret is a fallback until it is removed
 #  - GitHub Release with auto-generated notes
 #
 # Create a release:  git tag v1.5.0 && git push origin v1.5.0
@@ -81,12 +82,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # npm provenance: the registry links each version to this workflow run.
+      # Trusted publishing and provenance: npm trades this job's OIDC token
+      # for a short-lived publish token and links each version to this run.
       id-token: write
-    env:
-      # Job-level so steps can branch on it; publishes only when the
-      # NPM_TOKEN repo secret exists (Settings → Secrets → Actions).
-      NPM_TOKEN_SET: ${{ secrets.NPM_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -99,6 +97,10 @@ jobs:
           node-version: 22
           cache: pnpm
           registry-url: https://registry.npmjs.org
+
+      # Trusted publishing needs npm 11.5.1 or later; Node 22 ships npm 10.
+      - name: Use npm 11
+        run: npm install -g npm@11.21.2
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -113,8 +115,9 @@ jobs:
           mkdir -p "$RUNNER_TEMP/npm"
           pnpm --filter candidlens --filter hirelens pack --pack-destination "$RUNNER_TEMP/npm"
 
+      # npm tries trusted publishing first and falls back to NODE_AUTH_TOKEN,
+      # so the secret only matters until the packages disallow tokens.
       - name: Publish candidlens
-        if: ${{ env.NPM_TOKEN_SET == 'true' }}
         run: npm publish "$RUNNER_TEMP"/npm/candidlens-*.tgz --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -122,7 +125,6 @@ jobs:
       # The forwarder's version changes rarely; publish it only when that
       # version isn't on npm yet, after candidlens so its dependency exists.
       - name: Publish the hirelens forwarder (new versions only)
-        if: ${{ env.NPM_TOKEN_SET == 'true' }}
         run: |
           version=$(node -p "require('./apps/cli-hirelens/package.json').version")
           if npm view "hirelens@$version" version >/dev/null 2>&1; then
@@ -132,12 +134,6 @@ jobs:
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Skip notice (no NPM_TOKEN)
-        if: ${{ env.NPM_TOKEN_SET != 'true' }}
-        run: |
-          echo "NPM_TOKEN repo secret is not set — skipping npm publish."
-          echo "Add it (npm → Access Tokens → Generate, then repo Settings → Secrets → Actions) and re-tag to publish."
 
   release:
     name: GitHub Release

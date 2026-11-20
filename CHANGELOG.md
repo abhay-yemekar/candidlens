@@ -17,6 +17,20 @@ documented here. Format follows
   the talent pool writes its audit entry first for the same reason. If you
   join an organization in the moment you confirm, the deletion now stops
   and asks you to check the list and confirm again (#200).
+
+## [1.5.1] — 2026-11-20
+
+### Changed
+
+- The examples and the quickstart name `gemini-3.5-flash-lite` as the
+  Google model. Google retires `gemini-2.5-flash`: from 1 Dec 2026 its
+  requests go to `gemini-3.5-flash-lite`, at the same price. A `.env` that
+  still names 2.5 Flash keeps scoring, but its scores record the old model
+  id; set `CANDIDLENS_LLM_MODEL=gemini-3.5-flash-lite` to record the model
+  that scores (#201).
+
+### Fixed
+
 - Keyword search matched inside words and on words every resume has, so
   "experience with payments" listed 10 of the 12 demo resumes. Terms now
   skip stop words and resume headings, match only where a word starts
@@ -375,6 +389,7 @@ First public release. 🎉
   Google Gemini free tier as the default LLM.
 - MIT licensed. Resumes never have to leave the operator's machine.
 
-[Unreleased]: https://github.com/abhay-yemekar/candidlens/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/abhay-yemekar/candidlens/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/abhay-yemekar/candidlens/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/abhay-yemekar/candidlens/releases/tag/v1.5.0
 [1.0.0]: https://github.com/abhay-yemekar/candidlens/releases/tag/v1.0.0
