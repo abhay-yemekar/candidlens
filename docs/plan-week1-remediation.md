@@ -52,6 +52,7 @@ Idempotent by construction (drizzle skips journaled migrations).
 Nothing tells the operator what's wrong.
 
 **Fix:**
+
 - `AppDeps` gains `llmConfigError?: string | null`; `vercel.ts` captures
   `readLlmEnv()`'s message into it (these messages are ours — env-var
   names and required settings — so they're safe to surface, secrets never
@@ -72,6 +73,7 @@ error to `llm_misconfigured`; "Gemini rate-limited, Groq misconfigured"
 becomes "config invalid" and the rate limit detail is lost.
 
 **Fix in `llm-error.ts`:**
+
 - Per-attempt classification: `misconfigured` (model-id / key regexes) vs
   `transient` (429/5xx/rate-limit/quota/timeout/network) vs `failed`.
 - `AllProvidersFailedError` with **every** attempt misconfigured →
@@ -110,6 +112,7 @@ but `runBatch` feeds **raw** documents to the LLM. The recruiter's blind
 promise is broken at the only place that means anything — scoring.
 
 **Fix:**
+
 - Move `blindView` from `apps/api/src/blind.ts` into
   `@hirelens/core/src/mask/` (it's generic text masking; orchestrator
   can't import from apps/api). `apps/api/src/blind.ts` becomes a

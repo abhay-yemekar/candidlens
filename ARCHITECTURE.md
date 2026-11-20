@@ -96,6 +96,7 @@ What the audit trail guarantees is traceability: every stored score can be tied 
 ## Quality gates
 
 Every pull request runs:
+
 - Biome lint;
 - typecheck;
 - unit tests, plus integration tests against Postgres 16 + pgvector, with migrations applied first;

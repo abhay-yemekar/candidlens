@@ -7,6 +7,12 @@ documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Dependency updates: Next.js 16.4.6, better-auth 1.7.25, the Vercel
+  model SDK and its providers, Hono 4.13.18, Biome 2.6.7, Vitest 5.1,
+  Storybook 10.6.7 and 11 other minor and patch updates (#221).
+
 ### Fixed
 
 - Deleting an account could fail with a deadlock when an audit entry for
@@ -20,6 +26,10 @@ documented here. Format follows
 
 ### Security
 
+- Hono 4.13.18 fixes unbounded memory use in `bodyLimit()`
+  (GHSA-39q9-qp46-w8xg), which the API applies to every request, and
+  @hono/node-server 2.1.8 fixes a path-rule bypass with backslashes
+  (GHSA-jpvv-r467-5p4w) in the self-hosted API server (#221).
 - PDF resumes are read with unpdf 1.9.1, which bundles PDF.js 6.4.299.
   unpdf 1.8.1 bundled PDF.js 6.1.200, inside the range of
   GHSA-hq66-cqwq-w95j (CVE-2026-16633), where a malicious PDF can run
