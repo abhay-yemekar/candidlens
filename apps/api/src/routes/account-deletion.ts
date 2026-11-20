@@ -21,10 +21,12 @@
  * id is random and means nothing on its own; the name, email, password,
  * Google/GitHub links, sessions and memberships are all removed.
  *
- * It all happens in one transaction that first locks your organizations
- * and their memberships, then works out the plan. A co-owner deleting at
- * the same moment, a role change or an accepted invitation waits and then
- * sees the result, and a failure anywhere leaves everything as it was.
+ * It all happens in one transaction that first takes your organizations'
+ * audit locks, then locks your account, your organizations and their
+ * memberships, then works out the plan. A co-owner deleting at the same
+ * moment, a role change or an accepted invitation waits and then sees the
+ * result, an audit write waits or goes first instead of deadlocking (#200),
+ * and a failure anywhere leaves everything as it was.
  */
 
 import { randomUUID } from "node:crypto";
@@ -39,7 +41,7 @@ import {
   verification,
 } from "@candidlens/db";
 import { appendAuditIn, type DbTransaction, purgeOrgIn } from "@candidlens/orchestrator";
-import { and, eq, inArray, isNull, like, ne, or } from "drizzle-orm";
+import { and, eq, inArray, isNull, like, ne, or, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { readJson } from "../http.js";
@@ -94,11 +96,47 @@ type Outcome =
   | { status: 200; body: { ok: true } }
   | { status: 400 | 401 | 409; body: Record<string, unknown> };
 
+/**
+ * The audit locks of every organization the user is in: each one's
+ * advisory lock (the one appendAuditIn takes), in key order so two
+ * deletions can't deadlock, then audit_log in the mode purgeOrgIn's ALTER
+ * TABLE takes, which holds every audit write until this commits. Returns
+ * the organization ids, sorted.
+ */
+async function lockAuditLogs(tx: DbTransaction, userId: string): Promise<string[]> {
+  const mine = await tx
+    .select({ id: member.organizationId })
+    .from(member)
+    .where(eq(member.userId, userId))
+    .orderBy(sql`hashtext(${member.organizationId})`);
+  if (mine.length === 0) return [];
+  // As in purgeOrgIn: audit writes queue behind this, so give up after 5
+  // seconds instead of keeping them waiting.
+  await tx.execute(sql`SET LOCAL lock_timeout = '5s'`);
+  for (const { id } of mine) {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${id}))`);
+  }
+  await tx.execute(sql`LOCK TABLE audit_log IN SHARE ROW EXCLUSIVE MODE`);
+  return mine.map((m) => m.id).sort();
+}
+
 async function deleteAccountIn(
   tx: DbTransaction,
   userId: string,
   confirmEmail: string,
 ): Promise<Outcome> {
+  // Audit locks before any row lock (#200). An audit write takes its
+  // organization's advisory lock, then audit_log, then, through its
+  // foreign keys, the organization and actor rows. Leaving an
+  // organization writes to its audit log under that advisory lock, and
+  // erasing one needs audit_log to itself (purgeOrgIn). Taken after the
+  // rows below, either could wait on a write that waits on those rows.
+  // Taken first, a write that got there earlier finishes, and a later one
+  // waits at its advisory lock or its insert, before its foreign keys
+  // lock anything. So a transaction that writes an entry writes it before
+  // it locks other rows (see the talent-pool shortlist).
+  const orgIds = await lockAuditLogs(tx, userId);
+
   const [me] = await tx
     .select({ email: user.email })
     .from(user)
@@ -120,11 +158,6 @@ async function deleteAccountIn(
   // (an accepted invitation's insert waits on this through its foreign
   // key) and every membership in them (role changes and other deletions
   // wait too). Then plan with what is committed.
-  const orgIds = (
-    await tx.select({ id: member.organizationId }).from(member).where(eq(member.userId, userId))
-  )
-    .map((r) => r.id)
-    .sort();
   if (orgIds.length > 0) {
     await tx
       .select({ id: organization.id })
@@ -140,6 +173,20 @@ async function deleteAccountIn(
       .for("update");
   }
   const plan = await deletionPlan(tx, userId);
+  // The account's lock keeps new memberships out from there on, but one
+  // that came in just before it has none of the locks above: start over.
+  const planned = [...plan.erase, ...plan.leave, ...plan.handOver];
+  if (planned.some((org) => !orgIds.includes(org.id))) {
+    return {
+      status: 409,
+      body: {
+        ok: false,
+        error: "organizations_changed",
+        message:
+          "Your organizations changed while your account was being deleted. Nothing was deleted: check the list again, then confirm.",
+      },
+    };
+  }
   if (plan.handOver.length > 0) {
     return {
       status: 409,
