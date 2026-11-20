@@ -53,6 +53,7 @@ Working branch per wave; PR per wave; every wave follows `.codebuff/skills/hirel
 **Decision gate first** (see rename-size answer in chat): trademark search, domain purchase (~₹800–1,500/yr), then either qualify ("X — open-source glass-box screening") or full rename.
 
 **Full rename runbook (if chosen) — measured 2,982 "hirelens" occurrences in 236 files:**
+
 1. Decide name + buy domain (human, ~1 day; domain is the long pole for DNS).
 2. `git mv`-free mass rename in code: package scopes `@hirelens/*`, env `HIRELENS_*` (132), `docker compose` project names, `container_name`s, npm bin `hirelens`, CLI package name, service strings, logo SVG, UI labels. Single scripted pass + manual review of the diff.
 3. `NEXT_PUBLIC_*` env var names are a **breaking config change** → major-version migration note in CHANGELOG + `.env.example` update.
