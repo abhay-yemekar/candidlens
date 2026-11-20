@@ -7,7 +7,7 @@ documented here. Format follows
 
 ## [Unreleased]
 
-## [1.5.1] — 2026-11-18
+## [1.5.1] — 2026-11-20
 
 ### Changed
 
